@@ -31,9 +31,12 @@ void mover_frente(void);
 void mover_tras(void);
 void parar(void);
 void virar_esquerda(void);
+void enviar_velocidade_para_pic(void);
+void enviar_comando_para_pic(char comando);
 
 void setup()
 {
+  Serial1.begin(9600); // Inicia a comunicação via RX1 e TX1
   // Configura os pinos do sensor ultrassônico
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
@@ -56,10 +59,10 @@ void setup()
   TCCR1A = 0;
   TCCR1B = 0;
   TCNT1 = 0;
-  OCR1A = 31249;
-  TCCR1B |= (1 << WGM12);              // Modo CTC (Clear Timer on Compare Match)
+  OCR1A = 31249; // Valor de comparação para 1 segundo (prescaler 1024)
+  TCCR1B |= (1 << WGM12); // Modo CTC (Clear Timer on Compare Match)
   TCCR1B |= (1 << CS12) | (1 << CS10); // Prescaler 1024
-  TIMSK1 |= (1 << OCIE1A);             // Habilita interrupção por comparação A
+  TIMSK1 |= (1 << OCIE1A); // Habilita interrupção por comparação A
   interrupts();
 }
 
@@ -73,6 +76,7 @@ void loop()
   if (distancia < DISTANCIA_SEGURA && !em_reverso && !virando)
   {
     parar();
+    enviar_comando_para_pic('L'); // Envia comando para ligar o buzzer no PIC
     tempo_parada = tempo_atual;
     em_reverso = true;
   }
@@ -102,6 +106,7 @@ void loop()
     {
       parar();
       virando = false;
+      enviar_comando_para_pic('D'); // Envia comando para desligar o buzzer no PIC
     }
   }
 
@@ -115,22 +120,21 @@ void loop()
 // Manipulador da interrupção
 ISR(TIMER1_COMPA_vect)
 {
-  int potValue = analogRead(potPin);             // Lê o valor do potenciômetro (0 a 1023)
-  velocidade = map(potValue, 0, 1023, 150, 220); // Mapeia para o range de 150 a 220
+  int potValue = analogRead(potPin);                 // Lê o valor do potenciômetro (0 a 1023)
+  velocidade = map(potValue, 0, 1023, 150, 220);     // Mapeia para o range de 150 a 220
+  enviar_velocidade_para_pic();                      // Envia a velocidade para o PIC
 }
 
 // Ler a distância com o sensor ultrassônico
 int ler_distancia(void)
 {
   digitalWrite(trigPin, LOW);
-  unsigned long start_time = micros();
-  while (micros() - start_time < 2)
-    ; // Aguarda 2 microssegundos
+  unsigned long start_time = micros(); 
+  while (micros() - start_time < 2); // Aguarda 2 microssegundos
 
   digitalWrite(trigPin, HIGH);
-  start_time = micros();
-  while (micros() - start_time < 10)
-    ; // Aguarda 10 microssegundos
+  start_time = micros(); 
+  while (micros() - start_time < 10); // Aguarda 10 microssegundos
 
   digitalWrite(trigPin, LOW);
 
@@ -186,4 +190,16 @@ void parar(void)
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, LOW);
+}
+
+// Enviar a velocidade para o PIC via Serial1
+void enviar_velocidade_para_pic(void)
+{
+  Serial1.write(velocidade); // Envia a velocidade como um byte
+}
+
+// Enviar comando para o PIC via Serial1
+void enviar_comando_para_pic(char comando)
+{
+  Serial1.write(comando); // Envia o comando ('L' para ligar o buzzer, 'D' para desligar)
 }
