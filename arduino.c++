@@ -56,7 +56,7 @@ void setup()
   TCCR1A = 0;
   TCCR1B = 0;
   TCNT1 = 0;
-  OCR1A = 31249;                       
+  OCR1A = 31249;
   TCCR1B |= (1 << WGM12);              // Modo CTC (Clear Timer on Compare Match)
   TCCR1B |= (1 << CS12) | (1 << CS10); // Prescaler 1024
   TIMSK1 |= (1 << OCIE1A);             // Habilita interrupção por comparação A
@@ -123,9 +123,15 @@ ISR(TIMER1_COMPA_vect)
 int ler_distancia(void)
 {
   digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
+  unsigned long start_time = micros();
+  while (micros() - start_time < 2)
+    ; // Aguarda 2 microssegundos
+
   digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
+  start_time = micros();
+  while (micros() - start_time < 10)
+    ; // Aguarda 10 microssegundos
+
   digitalWrite(trigPin, LOW);
 
   long duracao = pulseIn(echoPin, HIGH);
