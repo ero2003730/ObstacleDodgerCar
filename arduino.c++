@@ -24,6 +24,7 @@ unsigned long tempo_reverso = 0;
 unsigned long tempo_virada = 0;
 bool em_reverso = false;
 bool virando = false;
+volatile int velocidade = 150; // Velocidade inicial
 
 int ler_distancia(void);
 void mover_frente(void);
@@ -49,6 +50,17 @@ void setup()
   pinMode(ENB, OUTPUT);
 
   parar(); // Robô parado por padrão
+
+  // Configuração do Timer1 para gerar interrupção a cada 1 segundo
+  noInterrupts();
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCNT1 = 0;
+  OCR1A = 31249;                       
+  TCCR1B |= (1 << WGM12);              // Modo CTC (Clear Timer on Compare Match)
+  TCCR1B |= (1 << CS12) | (1 << CS10); // Prescaler 1024
+  TIMSK1 |= (1 << OCIE1A);             // Habilita interrupção por comparação A
+  interrupts();
 }
 
 void loop()
@@ -100,6 +112,13 @@ void loop()
   }
 }
 
+// Manipulador da interrupção
+ISR(TIMER1_COMPA_vect)
+{
+  int potValue = analogRead(potPin);             // Lê o valor do potenciômetro (0 a 1023)
+  velocidade = map(potValue, 0, 1023, 150, 220); // Mapeia para o range de 150 a 220
+}
+
 // Ler a distância com o sensor ultrassônico
 int ler_distancia(void)
 {
@@ -118,9 +137,6 @@ int ler_distancia(void)
 // Mover o robô para a frente
 void mover_frente(void)
 {
-  int potValue = analogRead(potPin);                 // Lê o valor do potenciômetro (0 a 1023)
-  int velocidade = map(potValue, 0, 1023, 150, 220); // Mapeia para o range de 150 a 220
-
   analogWrite(ENA, velocidade);
   analogWrite(ENB, velocidade);
 
