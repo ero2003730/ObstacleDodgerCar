@@ -10,6 +10,9 @@ const int IN4 = 4;  // Pino IN4
 const int ENA = 9;  // Pino ENA para PWM do motor A
 const int ENB = 10; // Pino ENB para PWM do motor B
 
+// Definição do pino do potenciômetro
+const int potPin = A0; // Pino do potenciômetro
+
 // Definição das constantes auxiliares para controlar os motores
 const int DISTANCIA_SEGURA = 50; // [cm]
 const int PAUSA = 100;           // [ms]
@@ -115,8 +118,11 @@ int ler_distancia(void)
 // Mover o robô para a frente
 void mover_frente(void)
 {
-  analogWrite(ENA, 220);
-  analogWrite(ENB, 220);
+  int potValue = analogRead(potPin);                 // Lê o valor do potenciômetro (0 a 1023)
+  int velocidade = map(potValue, 0, 1023, 150, 220); // Mapeia para o range de 150 a 220
+
+  analogWrite(ENA, velocidade);
+  analogWrite(ENB, velocidade);
 
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
