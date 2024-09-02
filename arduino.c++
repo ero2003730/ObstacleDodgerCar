@@ -1,6 +1,6 @@
 // Definição dos pinos do sensor ultrassônico
-const int trigPin = 12;    // Pino TRIG do sensor
-const int echoPin = 13;    // Pino ECHO do sensor
+const int trigPin = 12; // Pino TRIG do sensor
+const int echoPin = 13; // Pino ECHO do sensor
 
 // Definição dos pinos do driver de motor
 const int IN1 = 7;  // Pino IN1
@@ -12,16 +12,24 @@ const int ENB = 10; // Pino ENB para PWM do motor B
 
 // Definição das constantes auxiliares para controlar os motores
 const int DISTANCIA_SEGURA = 50; // [cm]
-const int PAUSA = 100; // [ms]
+const int PAUSA = 100;           // [ms]
 
-// Funções auxiliares para controle
+// Variáveis para controlar os tempos
+unsigned long tempo_anterior = 0;
+unsigned long tempo_parada = 0;
+unsigned long tempo_reverso = 0;
+unsigned long tempo_virada = 0;
+bool em_reverso = false;
+bool virando = false;
+
 int ler_distancia(void);
 void mover_frente(void);
 void mover_tras(void);
 void parar(void);
 void virar_esquerda(void);
 
-void setup() {
+void setup()
+{
   // Configura os pinos do sensor ultrassônico
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
@@ -40,52 +48,73 @@ void setup() {
   parar(); // Robô parado por padrão
 }
 
-void loop() {
+void loop()
+{
+  unsigned long tempo_atual = millis();
+
   // Lê a distância
   int distancia = ler_distancia();
 
-  // Verifica se há um obstáculo na frente
-  if(distancia < DISTANCIA_SEGURA){
-    // Para o robô
+  if (distancia < DISTANCIA_SEGURA && !em_reverso && !virando)
+  {
     parar();
-    delay(500); // Pausa para o próximo movimento
-
-    // Move o robô para trás
-    mover_tras();
-
-    // Para o robô após um curto intervalo
-    delay(1000);
-    parar();
-
-    // Sempre vira para a esquerda
-    virar_esquerda();
-
-    // Para o robô após um curto intervalo
-    delay(500);
-    parar();
-  } else {
-    // Move o robô para a frente
-    mover_frente();
+    tempo_parada = tempo_atual;
+    em_reverso = true;
   }
 
-  // Pausa para a próxima leitura
-  delay(PAUSA);
+  if (em_reverso)
+  {
+    if (tempo_atual - tempo_parada >= 500 && tempo_atual - tempo_parada < 1500)
+    {
+      mover_tras();
+    }
+    else if (tempo_atual - tempo_parada >= 1500)
+    {
+      parar();
+      tempo_reverso = tempo_atual;
+      em_reverso = false;
+      virando = true;
+    }
+  }
+
+  if (virando)
+  {
+    if (tempo_atual - tempo_reverso >= 500 && tempo_atual - tempo_reverso < 1000)
+    {
+      virar_esquerda();
+    }
+    else if (tempo_atual - tempo_reverso >= 1000)
+    {
+      parar();
+      virando = false;
+    }
+  }
+
+  if (!em_reverso && !virando && tempo_atual - tempo_anterior >= PAUSA)
+  {
+    mover_frente();
+    tempo_anterior = tempo_atual;
+  }
 }
 
 // Ler a distância com o sensor ultrassônico
-int ler_distancia(void){
-  // Realiza o pulso de 10 microsegundos no trigger do sensor
+int ler_distancia(void)
+{
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
 
-  // Mede o pulso em microsegundos retornado para o echo do sensor
-  // e converte o tempo para distância ao dividir por 58
-  return pulseIn(echoPin, HIGH) / 58; // [cm]
+  long duracao = pulseIn(echoPin, HIGH);
+  int distancia = duracao * 0.034 / 2;
+
+  return distancia;
 }
 
 // Mover o robô para a frente
-void mover_frente(void){
+void mover_frente(void)
+{
   analogWrite(ENA, 220);
   analogWrite(ENB, 220);
 
@@ -96,7 +125,8 @@ void mover_frente(void){
 }
 
 // Mover o robô para trás
-void mover_tras(void){
+void mover_tras(void)
+{
   analogWrite(ENA, 150);
   analogWrite(ENB, 150);
 
@@ -107,7 +137,8 @@ void mover_tras(void){
 }
 
 // Virar o robô para a esquerda
-void virar_esquerda(void){
+void virar_esquerda(void)
+{
   analogWrite(ENA, 255);
   analogWrite(ENB, 255);
 
@@ -118,7 +149,8 @@ void virar_esquerda(void){
 }
 
 // Parar o robô
-void parar(void){
+void parar(void)
+{
   analogWrite(ENA, 0);
   analogWrite(ENB, 0);
 
