@@ -11,7 +11,12 @@ const int ENA = 9;  // Pino ENA para PWM do motor A
 const int ENB = 10; // Pino ENB para PWM do motor B
 
 // Definição do pino do potenciômetro
-const int potPin = A0; // Pino do potenciômetro
+const int potPin = A14; // Pino do potenciômetro
+
+// Definição dos pinos dos LEDs
+const int ledVerde = 31;    // Pino do LED verde
+const int ledAmarelo = 33;  // Pino do LED amarelo
+const int ledVermelho = 35; // Pino do LED vermelho
 
 // Definição das constantes auxiliares para controlar os motores
 const int DISTANCIA_SEGURA = 50; // [cm]
@@ -33,10 +38,12 @@ void parar(void);
 void virar_esquerda(void);
 void enviar_velocidade_para_pic(void);
 void enviar_comando_para_pic(char comando);
+void atualizar_leds(char estado);
 
 void setup()
 {
   Serial1.begin(9600); // Inicia a comunicação via RX1 e TX1
+
   // Configura os pinos do sensor ultrassônico
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
@@ -52,6 +59,11 @@ void setup()
   pinMode(ENA, OUTPUT);
   pinMode(ENB, OUTPUT);
 
+  // Configura os pinos dos LEDs como saída
+  pinMode(ledVerde, OUTPUT);
+  pinMode(ledAmarelo, OUTPUT);
+  pinMode(ledVermelho, OUTPUT);
+
   parar(); // Robô parado por padrão
 
   // Configuração do Timer1 para gerar interrupção a cada 1 segundo
@@ -59,10 +71,10 @@ void setup()
   TCCR1A = 0;
   TCCR1B = 0;
   TCNT1 = 0;
-  OCR1A = 31249; // Valor de comparação para 1 segundo (prescaler 1024)
-  TCCR1B |= (1 << WGM12); // Modo CTC (Clear Timer on Compare Match)
+  OCR1A = 31249;                       // Valor de comparação para 1 segundo (prescaler 1024)
+  TCCR1B |= (1 << WGM12);              // Modo CTC (Clear Timer on Compare Match)
   TCCR1B |= (1 << CS12) | (1 << CS10); // Prescaler 1024
-  TIMSK1 |= (1 << OCIE1A); // Habilita interrupção por comparação A
+  TIMSK1 |= (1 << OCIE1A);             // Habilita interrupção por comparação A
   interrupts();
 }
 
@@ -120,21 +132,23 @@ void loop()
 // Manipulador da interrupção
 ISR(TIMER1_COMPA_vect)
 {
-  int potValue = analogRead(potPin);                 // Lê o valor do potenciômetro (0 a 1023)
-  velocidade = map(potValue, 0, 1023, 150, 220);     // Mapeia para o range de 150 a 220
-  enviar_velocidade_para_pic();                      // Envia a velocidade para o PIC
+  int potValue = analogRead(potPin);             // Lê o valor do potenciômetro (0 a 1023)
+  velocidade = map(potValue, 0, 1023, 150, 220); // Mapeia para o range de 150 a 220
+  enviar_velocidade_para_pic();                  // Envia a velocidade para o PIC
 }
 
 // Ler a distância com o sensor ultrassônico
 int ler_distancia(void)
 {
   digitalWrite(trigPin, LOW);
-  unsigned long start_time = micros(); 
-  while (micros() - start_time < 2); // Aguarda 2 microssegundos
+  unsigned long start_time = micros();
+  while (micros() - start_time < 2)
+    ; // Aguarda 2 microssegundos
 
   digitalWrite(trigPin, HIGH);
-  start_time = micros(); 
-  while (micros() - start_time < 10); // Aguarda 10 microssegundos
+  start_time = micros();
+  while (micros() - start_time < 10)
+    ; // Aguarda 10 microssegundos
 
   digitalWrite(trigPin, LOW);
 
@@ -154,6 +168,8 @@ void mover_frente(void)
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
+
+  atualizar_leds('F'); // Atualiza LEDs para indicar movimento para frente
 }
 
 // Mover o robô para trás
@@ -166,6 +182,8 @@ void mover_tras(void)
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
+
+  atualizar_leds('R'); // Atualiza LEDs para indicar movimento de ré
 }
 
 // Virar o robô para a esquerda
@@ -178,6 +196,8 @@ void virar_esquerda(void)
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, HIGH);
+
+  atualizar_leds('R'); // Continua a indicar ré durante a virada
 }
 
 // Parar o robô
@@ -190,6 +210,8 @@ void parar(void)
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, LOW);
+
+  atualizar_leds('P'); // Atualiza LEDs para indicar parada
 }
 
 // Enviar a velocidade para o PIC via Serial1
@@ -202,4 +224,27 @@ void enviar_velocidade_para_pic(void)
 void enviar_comando_para_pic(char comando)
 {
   Serial1.write(comando); // Envia o comando ('L' para ligar o buzzer, 'D' para desligar)
+}
+
+// Atualizar o estado dos LEDs
+void atualizar_leds(char estado)
+{
+  switch (estado)
+  {
+  case 'F': // Movendo para frente
+    digitalWrite(ledVerde, HIGH);
+    digitalWrite(ledAmarelo, LOW);
+    digitalWrite(ledVermelho, LOW);
+    break;
+  case 'R': // Movendo para trás
+    digitalWrite(ledVerde, LOW);
+    digitalWrite(ledAmarelo, LOW);
+    digitalWrite(ledVermelho, HIGH);
+    break;
+  case 'P': // Parado
+    digitalWrite(ledVerde, LOW);
+    digitalWrite(ledAmarelo, HIGH);
+    digitalWrite(ledVermelho, LOW);
+    break;
+  }
 }
