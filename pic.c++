@@ -1,11 +1,24 @@
-// Definição das máscaras para os dígitos no display de 7 segmentos
-unsigned char ucMask[] = {0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F};
+// --- Ligações entre PIC e LCD ---
+sbit LCD_RS at RE2_bit; // PINO 2 DO PORTD INTERLIGADO AO RS DO DISPLAY
+sbit LCD_EN at RE1_bit; // PINO 3 DO PORTD INTERLIGADO AO EN DO DISPLAY
+sbit LCD_D7 at RD7_bit; // PINO 7 DO PORTD INTERLIGADO AO D7 DO DISPLAY
+sbit LCD_D6 at RD6_bit; // PINO 6 DO PORTD INTERLIGADO AO D6 DO DISPLAY
+sbit LCD_D5 at RD5_bit; // PINO 5 DO PORTD INTERLIGADO AO D5 DO DISPLAY
+sbit LCD_D4 at RD4_bit; // PINO 4 DO PORTD INTERLIGADO AO D4 DO DISPLAY
+
+// Selecionando direção de fluxo de dados dos pinos utilizados para a comunicação com display LCD
+sbit LCD_RS_Direction at TRISE2_bit; // SETA DIREÇÃO DO FLUXO DE DADOS DO PINO 2 DO PORTD
+sbit LCD_EN_Direction at TRISE1_bit; // SETA DIREÇÃO DO FLUXO DE DADOS DO PINO 3 DO PORTD
+sbit LCD_D7_Direction at TRISD7_bit; // SETA DIREÇÃO DO FLUXO DE DADOS DO PINO 7 DO PORTD
+sbit LCD_D6_Direction at TRISD6_bit; // SETA DIREÇÃO DO FLUXO DE DADOS DO PINO 6 DO PORTD
+sbit LCD_D5_Direction at TRISD5_bit; // SETA DIREÇÃO DO FLUXO DE DADOS DO PINO 5 DO PORTD
+sbit LCD_D4_Direction at TRISD4_bit; // SETA DIREÇÃO DO FLUXO DE DADOS DO PINO 4 DO PORTD
 
 // Variáveis globais
 unsigned int velocidade = 0; // Variável para armazenar a velocidade recebida
 char comando;                // Variável para armazenar o comando recebido
 
-void exibir_velocidade(unsigned int velocidade);
+void exibir_velocidade_lcd(unsigned int velocidade);
 void inicializar_uart(void);
 void configurar_pinos(void);
 void ligar_buzzer_e_led(void);
@@ -13,29 +26,32 @@ void desligar_buzzer_e_led(void);
 
 void main()
 {
-    configurar_pinos(); // Configura os pinos
-    inicializar_uart(); // Inicializa a UART
+    configurar_pinos();       // Configura os pinos
+    inicializar_uart();       // Inicializa a UART
+    Lcd_Init();               // Inicializa o LCD
+    Lcd_Cmd(_LCD_CLEAR);      // Limpa o display
+    Lcd_Cmd(_LCD_CURSOR_OFF); // Desliga o cursor
 
     while (1)
     {
         if (UART1_Data_Ready())
-        {                           // Verifica se há dados disponíveis na UART
+        {
             comando = UART1_Read(); // Lê o dado recebido
 
-            if (comando >= '0' && comando <= '9')
-            {
-                // Se for um número, converte para um inteiro e armazena como velocidade
-                velocidade = comando - '0';
-                velocidade = velocidade * 10 + (UART1_Read() - '0'); // Lê o próximo dígito
-                exibir_velocidade(velocidade);                       // Exibe a velocidade no display
-            }
-            else if (comando == 'L')
+            // Verifica se o comando recebido é 'L' ou 'D'
+            if (comando == 'L')
             {
                 ligar_buzzer_e_led(); // Liga o buzzer e o LED
             }
             else if (comando == 'D')
             {
                 desligar_buzzer_e_led(); // Desliga o buzzer e o LED
+            }
+            else
+            {
+                // Se não for 'L' ou 'D', trata o comando como sendo a velocidade
+                velocidade = comando;              // Recebe diretamente o valor da velocidade
+                exibir_velocidade_lcd(velocidade); // Exibe a velocidade no LCD
             }
         }
     }
@@ -60,24 +76,13 @@ void inicializar_uart(void)
     Delay_ms(100);    // Aguarda a estabilização
 }
 
-// Função para exibir a velocidade no display de 7 segmentos
-void exibir_velocidade(unsigned int velocidade)
+// Função para exibir a velocidade no display LCD
+void exibir_velocidade_lcd(unsigned int velocidade)
 {
-    unsigned int unidade, dezena;
-    unidade = velocidade % 10;
-    dezena = (velocidade / 10) % 10;
-
-    // Mostra a dezena
-    PORTD = ucMask[dezena];
-    PORTA.RA3 = 1;
-    Delay_ms(2);
-    PORTA.RA3 = 0;
-
-    // Mostra a unidade
-    PORTD = ucMask[unidade];
-    PORTA.RA4 = 1;
-    Delay_ms(2);
-    PORTA.RA4 = 0;
+    char texto[7];                 // Buffer para armazenar o texto da velocidade
+    IntToStr(velocidade, texto);   // Converte o número de velocidade para string
+    Lcd_Out(1, 1, "Velocidade: "); // Exibe a mensagem na linha 1 do LCD
+    Lcd_Out(2, 1, texto);          // Exibe a velocidade na linha 2 do LCD
 }
 
 // Função para ligar o buzzer e o LED
